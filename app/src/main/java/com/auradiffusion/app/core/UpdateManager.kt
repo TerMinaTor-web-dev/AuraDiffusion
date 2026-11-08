@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.Settings
 import android.util.Log
 import androidx.core.content.FileProvider
 import com.auradiffusion.app.BuildConfig
@@ -60,9 +62,8 @@ class UpdateManager(private val context: Context) {
         val lastSnooze = prefs.getLong(KEY_SNOOZE_TIMESTAMP, 0L)
         val now = System.currentTimeMillis()
 
-        // If postponed and 24 hours have not passed, skip unless forced
         if (!forceCheck && (now - lastSnooze < SNOOZE_DURATION_MS)) {
-            Log.i(TAG, "Update check snoozed for 24 hours (Remaining: ${(SNOOZE_DURATION_MS - (now - lastSnooze)) / (1000 * 60)} mins)")
+            Log.i(TAG, "Update check snoozed for 24 hours")
             return@withContext
         }
 
@@ -117,14 +118,31 @@ class UpdateManager(private val context: Context) {
 
     /**
      * Called when the user clicks 'Update Now'.
-     * Downloads the APK with progress updates, then launches package installer.
+     * Verifies permission, downloads APK, and launches package installer.
      */
     suspend fun downloadAndInstallUpdate(info: UpdateInfo) = withContext(Dispatchers.IO) {
+        // Android 8.0+ Check for unknown app install permission
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (!context.packageManager.canRequestPackageInstalls()) {
+                withContext(Dispatchers.Main) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }
+                        context.startActivity(intent)
+                    } catch (_: Throwable) {}
+                }
+                _updateState.value = UpdateState.Error("Please enable 'Allow from this source' for Aura Diffusion in settings, then tap Update Now.")
+                return@withContext
+            }
+        }
+
         _updateState.value = UpdateState.Downloading(0, 0, 0)
 
-        val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
-        val apkFile = File(updatesDir, "AuraDiffusion_v${info.versionName}.apk")
-        val partFile = File(updatesDir, "AuraDiffusion_v${info.versionName}.apk.part")
+        val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+        val apkFile = File(dir, "AuraDiffusion_v${info.versionName}.apk")
+        val partFile = File(dir, "AuraDiffusion_v${info.versionName}.apk.part")
 
         var connection: HttpURLConnection? = null
         var inputStream: InputStream? = null
@@ -135,7 +153,6 @@ class UpdateManager(private val context: Context) {
             var redirects = 0
             val maxRedirects = 7
 
-            // Follow HTTP 301, 302, 307, 308 redirects (GitHub to CDN/S3)
             while (redirects < maxRedirects) {
                 val urlObj = URL(currentUrl)
                 connection = (urlObj.openConnection() as HttpURLConnection).apply {
@@ -156,7 +173,6 @@ class UpdateManager(private val context: Context) {
                         currentUrl = if (location.startsWith("http")) location else URL(urlObj, location).toString()
                         connection.disconnect()
                         redirects++
-                        Log.i(TAG, "Updater following redirect #$redirects to: $currentUrl")
                         continue
                     }
                 }
@@ -166,7 +182,6 @@ class UpdateManager(private val context: Context) {
             val finalCode = connection?.responseCode ?: -1
             if (finalCode !in 200..299) {
                 val errorMsg = "Update download failed with HTTP $finalCode"
-                Log.e(TAG, errorMsg)
                 partFile.delete()
                 _updateState.value = UpdateState.Error(errorMsg)
                 return@withContext
@@ -204,7 +219,9 @@ class UpdateManager(private val context: Context) {
             }
 
             _updateState.value = UpdateState.ReadyToInstall(apkFile)
-            launchInstaller(apkFile)
+            withContext(Dispatchers.Main) {
+                launchInstaller(apkFile)
+            }
         } catch (e: Throwable) {
             Log.e(TAG, "Update download failed", e)
             partFile.delete()

@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.auradiffusion.app.core.KnoxSecurityGuard
 import com.auradiffusion.app.core.ModelManager
 import com.auradiffusion.app.core.NativeSD
 import com.auradiffusion.app.ui.theme.*
@@ -45,9 +44,6 @@ fun ModelHubScreen(
     var localModels by remember { mutableStateOf(modelManager.getLocalModels()) }
     val downloadState by modelManager.downloadProgress.collectAsState()
 
-    val securityReport = remember {
-        KnoxSecurityGuard.performSecurityAudit(context)
-    }
 
     // Refresh local models when download finishes
     LaunchedEffect(downloadState) {
@@ -147,7 +143,7 @@ fun ModelHubScreen(
             }
         }
 
-        // Samsung Knox & Security Guard Card
+        // Private Device Sandbox & Privacy Card
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -169,7 +165,7 @@ fun ModelHubScreen(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
-                            contentDescription = "Knox Security",
+                            contentDescription = "Device Sandbox",
                             tint = AccentEmerald,
                             modifier = Modifier.size(22.dp)
                         )
@@ -177,13 +173,13 @@ fun ModelHubScreen(
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
-                            text = "Samsung Knox & Data Guard: Active",
+                            text = "Private Device Sandbox: Active",
                             color = TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
                         Text(
-                            text = "Hardware-Backed FBE • Anti-Tapjacking • Zero Cloud Telemetry",
+                            text = "100% Offline Processing • Secure Storage • Zero Telemetry",
                             color = TextSecondary,
                             fontSize = 10.sp
                         )

@@ -23,7 +23,7 @@ import java.net.URL
 
 /**
  * ModelManager: Handles high-speed model downloads, multi-hop redirect following,
- * custom GGUF imports, and Knox-compliant secure local storage.
+ * custom GGUF imports, and secure local storage.
  */
 class ModelManager(private val context: Context) {
     companion object {

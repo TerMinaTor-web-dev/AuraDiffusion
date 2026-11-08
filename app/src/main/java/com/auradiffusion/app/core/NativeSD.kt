@@ -41,6 +41,10 @@ object NativeSD {
 
         fun new_sd_ctx(
             model_path: String,
+            clip_l_path: String,
+            clip_g_path: String,
+            t5xxl_path: String,
+            diffusion_model_path: String,
             vae_path: String,
             taesd_path: String,
             control_net_path: String,
@@ -56,7 +60,8 @@ object NativeSD {
             schedule: Int,
             keep_clip_on_cpu: Boolean,
             keep_control_net_cpu: Boolean,
-            keep_vae_on_cpu: Boolean
+            keep_vae_on_cpu: Boolean,
+            diffusion_flash_attn: Boolean
         ): Pointer?
 
         fun free_sd_ctx(ctx: Pointer?)
@@ -78,7 +83,9 @@ object NativeSD {
             control_strength: Float,
             style_strength: Float,
             normalize_input: Boolean,
-            input_id_images_path: String
+            input_id_images_path: String,
+            custom_sigmas: Pointer?,
+            custom_sigmas_count: Int
         ): Pointer?
 
         fun img2img(
@@ -101,7 +108,9 @@ object NativeSD {
             control_strength: Float,
             style_strength: Float,
             normalize_input: Boolean,
-            input_id_images_path: String
+            input_id_images_path: String,
+            custom_sigmas: Pointer?,
+            custom_sigmas_count: Int
         ): Pointer?
     }
 

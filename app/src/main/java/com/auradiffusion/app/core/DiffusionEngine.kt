@@ -93,6 +93,10 @@ class DiffusionEngine(private val context: Context) {
             // Try new_sd_ctx with auto quantization (wtype = 0)
             var ctx = lib.new_sd_ctx(
                 model_path = modelFile.absolutePath,
+                clip_l_path = "",
+                clip_g_path = "",
+                t5xxl_path = "",
+                diffusion_model_path = "",
                 vae_path = "",
                 taesd_path = "",
                 control_net_path = "",
@@ -108,7 +112,8 @@ class DiffusionEngine(private val context: Context) {
                 schedule = 0, // DEFAULT
                 keep_clip_on_cpu = false,
                 keep_control_net_cpu = false,
-                keep_vae_on_cpu = false
+                keep_vae_on_cpu = false,
+                diffusion_flash_attn = false
             )
 
             // Fallback retry with Q4_0 (wtype = 2) if auto returned null
@@ -116,6 +121,10 @@ class DiffusionEngine(private val context: Context) {
                 Log.i(TAG, "Retrying model load with Q4_0 weight alignment...")
                 ctx = lib.new_sd_ctx(
                     model_path = modelFile.absolutePath,
+                    clip_l_path = "",
+                    clip_g_path = "",
+                    t5xxl_path = "",
+                    diffusion_model_path = "",
                     vae_path = "",
                     taesd_path = "",
                     control_net_path = "",
@@ -131,7 +140,8 @@ class DiffusionEngine(private val context: Context) {
                     schedule = 0,
                     keep_clip_on_cpu = false,
                     keep_control_net_cpu = false,
-                    keep_vae_on_cpu = false
+                    keep_vae_on_cpu = false,
+                    diffusion_flash_attn = false
                 )
             }
 
@@ -217,7 +227,9 @@ class DiffusionEngine(private val context: Context) {
                     control_strength = 0.9f,
                     style_strength = 20f,
                     normalize_input = false,
-                    input_id_images_path = ""
+                    input_id_images_path = "",
+                    custom_sigmas = null,
+                    custom_sigmas_count = 0
                 )
 
                 if (imgPtr != null) {
@@ -305,7 +317,9 @@ class DiffusionEngine(private val context: Context) {
                     control_strength = 0.9f,
                     style_strength = 20f,
                     normalize_input = false,
-                    input_id_images_path = ""
+                    input_id_images_path = "",
+                    custom_sigmas = null,
+                    custom_sigmas_count = 0
                 )
 
                 if (imgPtr != null) {
@@ -586,7 +600,9 @@ class DiffusionEngine(private val context: Context) {
                     control_strength = 0.9f,
                     style_strength = 20f,
                     normalize_input = false,
-                    input_id_images_path = ""
+                    input_id_images_path = "",
+                    custom_sigmas = null,
+                    custom_sigmas_count = 0
                 )
 
                 if (refinedPtr != null) {
