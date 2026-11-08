@@ -13,6 +13,12 @@
   <img src="https://img.shields.io/badge/Content-100%25_Uncensored-10B981?style=for-the-badge" alt="Uncensored" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/TerMinaTor-web-dev/AuraDiffusion/raw/main/release/AuraDiffusion_v1.0_Release.apk">
+    <img src="https://img.shields.io/badge/Download%20APK-v1.0%20Production%20(23.6MB)-00E5FF?style=for-the-badge&logo=android&logoColor=black" alt="Download Release APK" />
+  </a>
+</p>
+
 ---
 
 ## 🌟 Key Highlights

@@ -8,6 +8,8 @@ build/
 captures/
 .externalNativeBuild/
 .cxx/
-*.apk
 *.ap_
 *.aab
+app/build/
+*.apk
+!release/*.apk
