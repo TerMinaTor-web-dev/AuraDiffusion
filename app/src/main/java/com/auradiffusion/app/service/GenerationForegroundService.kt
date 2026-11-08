@@ -21,22 +21,28 @@ class GenerationForegroundService : Service() {
         const val EXTRA_STATUS = "EXTRA_STATUS"
 
         fun startService(context: Context, status: String) {
-            val intent = Intent(context, GenerationForegroundService::class.java).apply {
-                action = ACTION_START
-                putExtra(EXTRA_STATUS, status)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(intent)
-            } else {
-                context.startService(intent)
+            try {
+                val intent = Intent(context, GenerationForegroundService::class.java).apply {
+                    action = ACTION_START
+                    putExtra(EXTRA_STATUS, status)
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    context.startForegroundService(intent)
+                } else {
+                    context.startService(intent)
+                }
+            } catch (e: Throwable) {
+                // Non-fatal on Android 14/15 if FGS permissions or notification policies restrict it
             }
         }
 
         fun stopService(context: Context) {
-            val intent = Intent(context, GenerationForegroundService::class.java).apply {
-                action = ACTION_STOP
-            }
-            context.startService(intent)
+            try {
+                val intent = Intent(context, GenerationForegroundService::class.java).apply {
+                    action = ACTION_STOP
+                }
+                context.startService(intent)
+            } catch (_: Throwable) {}
         }
     }
 
@@ -60,18 +66,19 @@ class GenerationForegroundService : Service() {
         val status = intent?.getStringExtra(EXTRA_STATUS) ?: "Synthesizing AI Artwork..."
         val notification = buildNotification(status)
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                NOTIFICATION_ID,
-                notification,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val fgsType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
                 } else {
                     0
                 }
-            )
-        } else {
-            startForeground(NOTIFICATION_ID, notification)
+                startForeground(NOTIFICATION_ID, notification, fgsType)
+            } else {
+                startForeground(NOTIFICATION_ID, notification)
+            }
+        } catch (_: Throwable) {
+            // Safe fallback: allow generation to proceed in foreground activity
         }
 
         return START_NOT_STICKY

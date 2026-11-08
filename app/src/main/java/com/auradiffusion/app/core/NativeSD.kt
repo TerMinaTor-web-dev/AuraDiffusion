@@ -9,7 +9,7 @@ import com.sun.jna.Structure
 
 /**
  * Native JNA interface directly binding to leejet/stable-diffusion.cpp
- * running on Adreno 750 Vulkan GPU engine.
+ * running on Adreno 750 Vulkan GPU engine with automatic CPU fallback.
  */
 object NativeSD {
     private const val TAG = "AuraNativeSD"
@@ -37,12 +37,12 @@ object NativeSD {
 
         fun new_sd_ctx(
             model_path: String,
-            vae_path: String?,
-            taesd_path: String?,
-            control_net_path: String?,
-            lora_model_dir: String?,
-            embedding_dir: String?,
-            id_embeddings_path: String?,
+            vae_path: String,
+            taesd_path: String,
+            control_net_path: String,
+            lora_model_dir: String,
+            embedding_dir: String,
+            id_embeddings_path: String,
             vae_decode_only: Boolean,
             vae_tiling: Boolean,
             free_params_immediately: Boolean,
@@ -60,11 +60,10 @@ object NativeSD {
         fun txt2img(
             ctx: Pointer?,
             prompt: String,
-            negative_prompt: String?,
-            clip_skip: Float,
+            negative_prompt: String,
+            clip_skip: Int,
             cfg_scale: Float,
             guidance: Float,
-            eta: Float,
             width: Int,
             height: Int,
             sample_method: Int,
@@ -75,8 +74,7 @@ object NativeSD {
             control_strength: Float,
             style_strength: Float,
             normalize_input: Boolean,
-            input_id_images_path: String?,
-            out_count: IntArray?
+            input_id_images_path: String
         ): Pointer?
 
         fun img2img(
@@ -84,11 +82,10 @@ object NativeSD {
             init_image: SDImage.ByValue,
             mask_image: SDImage.ByValue,
             prompt: String,
-            negative_prompt: String?,
-            clip_skip: Float,
+            negative_prompt: String,
+            clip_skip: Int,
             cfg_scale: Float,
             guidance: Float,
-            eta: Float,
             width: Int,
             height: Int,
             sample_method: Int,
@@ -100,8 +97,7 @@ object NativeSD {
             control_strength: Float,
             style_strength: Float,
             normalize_input: Boolean,
-            input_id_images_path: String?,
-            out_count: IntArray?
+            input_id_images_path: String
         ): Pointer?
     }
 
@@ -126,32 +122,36 @@ object NativeSD {
         // 1. Try Vulkan (Snapdragon 8 Gen 3 Adreno 750 primary)
         try {
             Log.i(TAG, "Loading libstable-diffusion_vulkan.so...")
+            try { System.loadLibrary("stable-diffusion_vulkan") } catch (_: Throwable) {}
             val lib = Native.load("stable-diffusion_vulkan", SDLibrary::class.java)
             libInstance = lib
             activeBackend = "Vulkan (Adreno 750 GPU)"
             Log.i(TAG, "Vulkan backend loaded successfully!")
             return lib
         } catch (e: Throwable) {
-            Log.w(TAG, "Vulkan load failed, trying OpenCL fallback: ${e.message}")
+            Log.w(TAG, "Vulkan load notice: ${e.message}, trying CPU fallback...")
         }
 
-        // 2. Try OpenCL
+        // 2. Try CPU (Cortex-X4 / A720)
         try {
-            val lib = Native.load("stable-diffusion_opencl", SDLibrary::class.java)
-            libInstance = lib
-            activeBackend = "OpenCL GPU"
-            Log.i(TAG, "OpenCL backend loaded successfully!")
-            return lib
-        } catch (e: Throwable) {
-            Log.w(TAG, "OpenCL load failed, trying CPU fallback: ${e.message}")
-        }
-
-        // 3. Try CPU
-        try {
+            Log.i(TAG, "Loading libstable-diffusion.so (CPU)...")
+            try { System.loadLibrary("stable-diffusion") } catch (_: Throwable) {}
             val lib = Native.load("stable-diffusion", SDLibrary::class.java)
             libInstance = lib
             activeBackend = "CPU (Cortex-X4 / A720)"
             Log.i(TAG, "CPU backend loaded successfully!")
+            return lib
+        } catch (e: Throwable) {
+            Log.w(TAG, "CPU load notice: ${e.message}, trying OpenCL...")
+        }
+
+        // 3. Try OpenCL
+        try {
+            try { System.loadLibrary("stable-diffusion_opencl") } catch (_: Throwable) {}
+            val lib = Native.load("stable-diffusion_opencl", SDLibrary::class.java)
+            libInstance = lib
+            activeBackend = "OpenCL GPU"
+            Log.i(TAG, "OpenCL backend loaded successfully!")
             return lib
         } catch (e: Throwable) {
             Log.e(TAG, "All backend loads failed!", e)

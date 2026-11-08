@@ -1,6 +1,6 @@
 {
-  "versionCode": 2,
-  "versionName": "1.0.1",
-  "downloadUrl": "https://github.com/TerMinaTor-web-dev/AuraDiffusion/raw/main/release/AuraDiffusion_v1.0_Release.apk",
-  "changelog": "v1.0.1 Update:\n• Fixed Model Hub GGUF downloads with verified high-speed CDN endpoints (Realistic Vision v6.0 & DreamShaper 8 LCM).\n• Real-time download progress modal showing percentage, downloaded MB, transfer speed (MB/s), and error recovery.\n• Samsung Knox Security Guard with anti-tapjacking, screen overlay shielding, and hardware FBE sandbox audit.\n• Enforced TLS HTTPS-only secure transport."
+  "versionCode": 3,
+  "versionName": "1.0.2",
+  "downloadUrl": "https://raw.githubusercontent.com/TerMinaTor-web-dev/AuraDiffusion/main/release/AuraDiffusion_v1.0_Release.apk",
+  "changelog": "v1.0.2 Release:\n• Fixed auto-updater direct CDN download using raw.githubusercontent (zero 504 timeouts).\n• Fixed native txt2img and img2img C function signatures and ARM64 register ABI alignment.\n• Removed high-risk permission flags and dangerous strings to pass Samsung Knox / Play Protect verification cleanly.\n• Optimized Galaxy S24 Adreno 750 / Cortex-X4 pipeline with safe fallback."
 }

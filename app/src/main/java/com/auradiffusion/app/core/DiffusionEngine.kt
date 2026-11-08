@@ -89,12 +89,12 @@ class DiffusionEngine(private val context: Context) {
             // new_sd_ctx with vae_tiling = true (prevents 8GB RAM spikes)
             val ctx = lib.new_sd_ctx(
                 model_path = modelFile.absolutePath,
-                vae_path = null,
-                taesd_path = null,
-                control_net_path = null,
-                lora_model_dir = null,
-                embedding_dir = null,
-                id_embeddings_path = null,
+                vae_path = "",
+                taesd_path = "",
+                control_net_path = "",
+                lora_model_dir = "",
+                embedding_dir = "",
+                id_embeddings_path = "",
                 vae_decode_only = false,
                 vae_tiling = true, // Crucial for S24 zero-crash stability!
                 free_params_immediately = false,
@@ -169,15 +169,13 @@ class DiffusionEngine(private val context: Context) {
         _progressState.value = GenerationProgress(0, safeSteps, 0f, "Initiating Euler/Adreno 750 pipeline...")
 
         try {
-            val outCount = IntArray(1)
             val imgPtr = lib.txt2img(
                 ctx = ctx,
                 prompt = finalPositive,
                 negative_prompt = finalNegative,
-                clip_skip = -1f,
+                clip_skip = -1,
                 cfg_scale = safeCfg,
                 guidance = 3.5f,
-                eta = 0f,
                 width = config.width,
                 height = config.height,
                 sample_method = 0, // EULER_A
@@ -188,8 +186,7 @@ class DiffusionEngine(private val context: Context) {
                 control_strength = 0.9f,
                 style_strength = 20f,
                 normalize_input = false,
-                input_id_images_path = null,
-                out_count = outCount
+                input_id_images_path = ""
             )
 
             if (imgPtr != null) {
@@ -258,17 +255,15 @@ class DiffusionEngine(private val context: Context) {
         lib.sd_set_progress_callback(callback, null)
 
         try {
-            val outCount = IntArray(1)
             val imgPtr = lib.img2img(
                 ctx = ctx,
                 init_image = initSdImage,
                 mask_image = emptyMask,
                 prompt = finalPositive,
                 negative_prompt = finalNegative,
-                clip_skip = -1f,
+                clip_skip = -1,
                 cfg_scale = safeCfg,
                 guidance = 3.5f,
-                eta = 0f,
                 width = config.width,
                 height = config.height,
                 sample_method = 0, // EULER_A
@@ -280,8 +275,7 @@ class DiffusionEngine(private val context: Context) {
                 control_strength = 0.9f,
                 style_strength = 20f,
                 normalize_input = false,
-                input_id_images_path = null,
-                out_count = outCount
+                input_id_images_path = ""
             )
 
             if (imgPtr != null) {
@@ -407,17 +401,15 @@ class DiffusionEngine(private val context: Context) {
                 val facePrompt = "${config.prompt}, perfect face, detailed eyes, natural skin, sharp focus"
                 val faceNegative = "deformed eyes, cross-eyed, blurry, bad anatomy"
 
-                val outCount = IntArray(1)
                 val refinedPtr = lib.img2img(
                     ctx = ctx,
                     init_image = faceSdImage,
                     mask_image = emptyMask,
                     prompt = facePrompt,
                     negative_prompt = faceNegative,
-                    clip_skip = -1f,
+                    clip_skip = -1,
                     cfg_scale = 6.0f,
                     guidance = 3.5f,
-                    eta = 0f,
                     width = 512,
                     height = 512,
                     sample_method = 0,
@@ -429,8 +421,7 @@ class DiffusionEngine(private val context: Context) {
                     control_strength = 0.9f,
                     style_strength = 20f,
                     normalize_input = false,
-                    input_id_images_path = null,
-                    out_count = outCount
+                    input_id_images_path = ""
                 )
 
                 if (refinedPtr != null) {

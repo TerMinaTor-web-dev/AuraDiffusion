@@ -313,7 +313,10 @@ fun Txt2ImgScreen(
                 GenerationForegroundService.startService(context, "Synthesizing artwork on Galaxy S24...")
                 scope.launch {
                     try {
-                        engine.loadModel(selectedModel)
+                        val loaded = engine.loadModel(selectedModel)
+                        if (!loaded) {
+                            Toast.makeText(context, "Notice: Model loading issue, retrying...", Toast.LENGTH_SHORT).show()
+                        }
                         val config = DiffusionEngine.GenerationConfig(
                             prompt = prompt,
                             negativePrompt = customNegative,
@@ -326,7 +329,13 @@ fun Txt2ImgScreen(
                             enableFaceRefine = faceRefineEnabled
                         )
                         val bmp = engine.generateTxt2Img(config)
-                        resultBitmap = bmp
+                        if (bmp != null) {
+                            resultBitmap = bmp
+                        } else {
+                            Toast.makeText(context, "Engine returned null canvas", Toast.LENGTH_SHORT).show()
+                        }
+                    } catch (e: Throwable) {
+                        Toast.makeText(context, "Generation error: ${e.message}", Toast.LENGTH_LONG).show()
                     } finally {
                         isGenerating = false
                         GenerationForegroundService.stopService(context)

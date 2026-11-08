@@ -258,14 +258,29 @@ fun UpdateDialog(
         }
 
         is UpdateManager.UpdateState.Error -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
             AlertDialog(
                 onDismissRequest = { updateManager.dismissError() },
                 confirmButton = {
-                    TextButton(onClick = { updateManager.dismissError() }) {
-                        Text("OK", color = AccentCyan)
+                    Row {
+                        TextButton(onClick = {
+                            try {
+                                val browserIntent = android.content.Intent(
+                                    android.content.Intent.ACTION_VIEW,
+                                    android.net.Uri.parse("https://raw.githubusercontent.com/TerMinaTor-web-dev/AuraDiffusion/main/release/AuraDiffusion_v1.0_Release.apk")
+                                )
+                                context.startActivity(browserIntent)
+                            } catch (_: Throwable) {}
+                            updateManager.dismissError()
+                        }) {
+                            Text("Download via Browser", color = AccentEmerald)
+                        }
+                        TextButton(onClick = { updateManager.dismissError() }) {
+                            Text("OK", color = AccentCyan)
+                        }
                     }
                 },
-                title = { Text("Update Failed", color = TextPrimary) },
+                title = { Text("Update Notice", color = TextPrimary) },
                 text = { Text(updateState.message, color = TextSecondary) },
                 containerColor = DarkSurface
             )
