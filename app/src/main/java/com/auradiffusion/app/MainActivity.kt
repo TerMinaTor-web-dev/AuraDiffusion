@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.core.content.IntentCompat
 import com.auradiffusion.app.core.DiffusionEngine
+import com.auradiffusion.app.core.KnoxSecurityGuard
 import com.auradiffusion.app.core.ModelManager
 import com.auradiffusion.app.core.UpdateManager
 import com.auradiffusion.app.ui.components.UpdateDialog
@@ -52,6 +53,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Apply Samsung Knox anti-tapjacking and screen overlay defenses
+        KnoxSecurityGuard.applyAntiTapjacking(this)
+        KnoxSecurityGuard.performSecurityAudit(this)
 
         engine = DiffusionEngine.getInstance(this)
         modelManager = ModelManager(this)

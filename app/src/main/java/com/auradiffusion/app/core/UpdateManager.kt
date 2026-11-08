@@ -124,24 +124,57 @@ class UpdateManager(private val context: Context) {
 
         val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
         val apkFile = File(updatesDir, "AuraDiffusion_v${info.versionName}.apk")
+        val partFile = File(updatesDir, "AuraDiffusion_v${info.versionName}.apk.part")
 
         var connection: HttpURLConnection? = null
         var inputStream: InputStream? = null
         var outputStream: FileOutputStream? = null
 
         try {
-            val url = URL(info.downloadUrl)
-            connection = (url.openConnection() as HttpURLConnection).apply {
-                connectTimeout = 15000
-                readTimeout = 30000
-                instanceFollowRedirects = true
-                setRequestProperty("User-Agent", "AuraDiffusion-Updater")
-            }
-            connection.connect()
+            var currentUrl = info.downloadUrl
+            var redirects = 0
+            val maxRedirects = 7
 
-            val totalBytes = connection.contentLengthLong
-            inputStream = connection.inputStream
-            outputStream = FileOutputStream(apkFile)
+            // Follow HTTP 301, 302, 307, 308 redirects (GitHub to CDN/S3)
+            while (redirects < maxRedirects) {
+                val urlObj = URL(currentUrl)
+                connection = (urlObj.openConnection() as HttpURLConnection).apply {
+                    connectTimeout = 20000
+                    readTimeout = 40000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14; Galaxy S24) AuraDiffusion-Updater")
+                    setRequestProperty("Accept", "*/*")
+                }
+
+                val code = connection.responseCode
+                if (code == HttpURLConnection.HTTP_MOVED_PERM ||
+                    code == HttpURLConnection.HTTP_MOVED_TEMP ||
+                    code == 307 || code == 308
+                ) {
+                    val location = connection.getHeaderField("Location")
+                    if (!location.isNullOrBlank()) {
+                        currentUrl = if (location.startsWith("http")) location else URL(urlObj, location).toString()
+                        connection.disconnect()
+                        redirects++
+                        Log.i(TAG, "Updater following redirect #$redirects to: $currentUrl")
+                        continue
+                    }
+                }
+                break
+            }
+
+            val finalCode = connection?.responseCode ?: -1
+            if (finalCode !in 200..299) {
+                val errorMsg = "Update download failed with HTTP $finalCode"
+                Log.e(TAG, errorMsg)
+                partFile.delete()
+                _updateState.value = UpdateState.Error(errorMsg)
+                return@withContext
+            }
+
+            val totalBytes = connection?.contentLengthLong ?: 0L
+            inputStream = connection?.inputStream ?: throw IllegalStateException("Null input stream")
+            outputStream = FileOutputStream(partFile)
 
             val buffer = ByteArray(64 * 1024)
             var bytesRead: Int
@@ -160,11 +193,21 @@ class UpdateManager(private val context: Context) {
                 }
             }
             outputStream.flush()
+            outputStream.close()
+            outputStream = null
+
+            // Atomic rename from .part to final .apk
+            if (apkFile.exists()) apkFile.delete()
+            if (!partFile.renameTo(apkFile)) {
+                partFile.copyTo(apkFile, overwrite = true)
+                partFile.delete()
+            }
 
             _updateState.value = UpdateState.ReadyToInstall(apkFile)
             launchInstaller(apkFile)
         } catch (e: Throwable) {
             Log.e(TAG, "Update download failed", e)
+            partFile.delete()
             apkFile.delete()
             _updateState.value = UpdateState.Error(e.message ?: "Download failed")
         } finally {
