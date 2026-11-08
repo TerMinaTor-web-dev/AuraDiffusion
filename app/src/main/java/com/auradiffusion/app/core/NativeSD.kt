@@ -1,11 +1,15 @@
 package com.auradiffusion.app.core
 
+import android.content.Context
 import android.util.Log
 import com.sun.jna.Callback
 import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.Pointer
 import com.sun.jna.Structure
+import java.io.File
+import java.io.FileOutputStream
+import java.util.zip.ZipFile
 
 /**
  * Native JNA interface directly binding to leejet/stable-diffusion.cpp
@@ -106,24 +110,97 @@ object NativeSD {
         private set
 
     /**
+     * Ensures native libraries (.so) are available on disk and JNA is initialized.
+     */
+    private fun ensureNativeLibs(context: Context?): File? {
+        if (context == null) return null
+
+        val appNativeDir = File(context.applicationInfo.nativeLibraryDir)
+        val jniDispatchFile = File(appNativeDir, "libjnidispatch.so")
+        val sdFile = File(appNativeDir, "libstable-diffusion.so")
+
+        if (jniDispatchFile.exists() && sdFile.exists()) {
+            return appNativeDir
+        }
+
+        // If OS did not extract them, extract directly from APK to private files dir
+        val fallbackDir = File(context.filesDir, "lib_arm64").apply { mkdirs() }
+        val targetSo = File(fallbackDir, "libstable-diffusion.so")
+        if (targetSo.exists() && targetSo.length() > 1000000) {
+            return fallbackDir
+        }
+
+        try {
+            val apkPath = context.packageCodePath
+            ZipFile(File(apkPath)).use { zip ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    if (entry.name.startsWith("lib/arm64-v8a/") && entry.name.endsWith(".so")) {
+                        val fileName = entry.name.substringAfterLast("/")
+                        val destFile = File(fallbackDir, fileName)
+                        zip.getInputStream(entry).use { input ->
+                            FileOutputStream(destFile).use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                        Log.i(TAG, "Extracted native lib: $fileName (${destFile.length()} bytes)")
+                    }
+                }
+            }
+            return fallbackDir
+        } catch (e: Throwable) {
+            Log.w(TAG, "Notice extracting native libs from APK: ${e.message}")
+            return appNativeDir
+        }
+    }
+
+    /**
      * Initializes the native library, prioritizing Vulkan acceleration on S24
      * with graceful fallback to OpenCL or CPU.
      */
     @Synchronized
-    fun getLibrary(): SDLibrary? {
+    fun getLibrary(context: Context? = null): SDLibrary? {
         if (libInstance != null) return libInstance
 
+        val nativeDir = ensureNativeLibs(context)
+        if (nativeDir != null) {
+            System.setProperty("jna.boot.library.path", nativeDir.absolutePath)
+            System.setProperty("jna.library.path", nativeDir.absolutePath)
+            System.setProperty("jna.nosys", "false")
+        }
+
+        // Preload JNA dispatcher and OpenMP
         try {
-            System.loadLibrary("omp")
+            if (nativeDir != null && File(nativeDir, "libjnidispatch.so").exists()) {
+                System.load(File(nativeDir, "libjnidispatch.so").absolutePath)
+            } else {
+                System.loadLibrary("jnidispatch")
+            }
         } catch (e: Throwable) {
-            Log.w(TAG, "Notice on libomp load: ${e.message}")
+            Log.w(TAG, "Notice loading jnidispatch: ${e.message}")
+        }
+
+        try {
+            if (nativeDir != null && File(nativeDir, "libomp.so").exists()) {
+                System.load(File(nativeDir, "libomp.so").absolutePath)
+            } else {
+                System.loadLibrary("omp")
+            }
+        } catch (e: Throwable) {
+            Log.w(TAG, "Notice loading libomp: ${e.message}")
         }
 
         // 1. Try Vulkan (Snapdragon 8 Gen 3 Adreno 750 primary)
         try {
-            Log.i(TAG, "Loading libstable-diffusion_vulkan.so...")
-            try { System.loadLibrary("stable-diffusion_vulkan") } catch (_: Throwable) {}
-            val lib = Native.load("stable-diffusion_vulkan", SDLibrary::class.java)
+            val vulkanFile = if (nativeDir != null) File(nativeDir, "libstable-diffusion_vulkan.so") else null
+            val lib = if (vulkanFile != null && vulkanFile.exists()) {
+                try { System.load(vulkanFile.absolutePath) } catch (_: Throwable) {}
+                Native.load(vulkanFile.absolutePath, SDLibrary::class.java)
+            } else {
+                try { System.loadLibrary("stable-diffusion_vulkan") } catch (_: Throwable) {}
+                Native.load("stable-diffusion_vulkan", SDLibrary::class.java)
+            }
             libInstance = lib
             activeBackend = "Vulkan (Adreno 750 GPU)"
             Log.i(TAG, "Vulkan backend loaded successfully!")
@@ -134,9 +211,14 @@ object NativeSD {
 
         // 2. Try CPU (Cortex-X4 / A720)
         try {
-            Log.i(TAG, "Loading libstable-diffusion.so (CPU)...")
-            try { System.loadLibrary("stable-diffusion") } catch (_: Throwable) {}
-            val lib = Native.load("stable-diffusion", SDLibrary::class.java)
+            val cpuFile = if (nativeDir != null) File(nativeDir, "libstable-diffusion.so") else null
+            val lib = if (cpuFile != null && cpuFile.exists()) {
+                try { System.load(cpuFile.absolutePath) } catch (_: Throwable) {}
+                Native.load(cpuFile.absolutePath, SDLibrary::class.java)
+            } else {
+                try { System.loadLibrary("stable-diffusion") } catch (_: Throwable) {}
+                Native.load("stable-diffusion", SDLibrary::class.java)
+            }
             libInstance = lib
             activeBackend = "CPU (Cortex-X4 / A720)"
             Log.i(TAG, "CPU backend loaded successfully!")
@@ -147,8 +229,14 @@ object NativeSD {
 
         // 3. Try OpenCL
         try {
-            try { System.loadLibrary("stable-diffusion_opencl") } catch (_: Throwable) {}
-            val lib = Native.load("stable-diffusion_opencl", SDLibrary::class.java)
+            val oclFile = if (nativeDir != null) File(nativeDir, "libstable-diffusion_opencl.so") else null
+            val lib = if (oclFile != null && oclFile.exists()) {
+                try { System.load(oclFile.absolutePath) } catch (_: Throwable) {}
+                Native.load(oclFile.absolutePath, SDLibrary::class.java)
+            } else {
+                try { System.loadLibrary("stable-diffusion_opencl") } catch (_: Throwable) {}
+                Native.load("stable-diffusion_opencl", SDLibrary::class.java)
+            }
             libInstance = lib
             activeBackend = "OpenCL GPU"
             Log.i(TAG, "OpenCL backend loaded successfully!")

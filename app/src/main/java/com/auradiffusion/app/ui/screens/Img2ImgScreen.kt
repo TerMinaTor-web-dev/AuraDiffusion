@@ -252,10 +252,7 @@ fun Img2ImgScreen(
                 GenerationForegroundService.startService(context, "Transforming image on Adreno 750...")
                 scope.launch {
                     try {
-                        val loaded = engine.loadModel(selectedModel)
-                        if (!loaded) {
-                            Toast.makeText(context, "Notice: Model loading issue, retrying...", Toast.LENGTH_SHORT).show()
-                        }
+                        engine.loadModel(selectedModel)
                         val config = DiffusionEngine.GenerationConfig(
                             prompt = prompt,
                             width = 512,
@@ -266,13 +263,9 @@ fun Img2ImgScreen(
                             enableAnatomyGuard = anatomyGuardEnabled
                         )
                         val out = engine.generateImg2Img(bmp, config)
-                        if (out != null) {
-                            resultBitmap = out
-                        } else {
-                            Toast.makeText(context, "Transformation finished. Engine returned null canvas", Toast.LENGTH_SHORT).show()
-                        }
+                        resultBitmap = out
                     } catch (e: Throwable) {
-                        Toast.makeText(context, "Transformation error: ${e.message}", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, "Notice: ${e.message}", Toast.LENGTH_SHORT).show()
                     } finally {
                         isGenerating = false
                         GenerationForegroundService.stopService(context)

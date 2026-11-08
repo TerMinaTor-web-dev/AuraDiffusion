@@ -14,8 +14,8 @@ android {
     applicationId = "com.auradiffusion.app"
     minSdk = 26
     targetSdk = 36
-    versionCode = 3
-    versionName = "1.0.2"
+    versionCode = 4
+    versionName = "1.0.3"
 
     ndk {
       abiFilters.add("arm64-v8a")
@@ -85,6 +85,6 @@ dependencies {
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.kotlinx.coroutines.android)
-  implementation(libs.jna)
+  implementation("net.java.dev.jna:jna:5.14.0@aar")
   implementation(libs.coil.compose)
 }
