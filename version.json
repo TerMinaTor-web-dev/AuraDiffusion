@@ -1,0 +1,6 @@
+{
+  "versionCode": 1,
+  "versionName": "1.0.0",
+  "downloadUrl": "https://github.com/TerMinaTor-web-dev/AuraDiffusion/raw/main/release/AuraDiffusion_v1.0_Release.apk",
+  "changelog": "Initial Production Release: On-device Snapdragon 8 Gen 3 Adreno 750 Vulkan engine, anti-deformation anatomy guard (no extra limbs), 2nd-pass face refiner, image-to-image with Samsung Gallery sharing, and in-app auto updater."
+}

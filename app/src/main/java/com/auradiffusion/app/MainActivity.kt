@@ -2,6 +2,7 @@ package com.auradiffusion.app
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,8 +19,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.core.content.IntentCompat
 import com.auradiffusion.app.core.DiffusionEngine
 import com.auradiffusion.app.core.ModelManager
+import com.auradiffusion.app.core.UpdateManager
+import com.auradiffusion.app.ui.components.UpdateDialog
 import com.auradiffusion.app.ui.screens.GalleryScreen
 import com.auradiffusion.app.ui.screens.Img2ImgScreen
 import com.auradiffusion.app.ui.screens.ModelHubScreen
@@ -29,12 +33,14 @@ import com.auradiffusion.app.ui.theme.AuraDiffusionTheme
 import com.auradiffusion.app.ui.theme.DarkBackground
 import com.auradiffusion.app.ui.theme.DarkSurface
 import com.auradiffusion.app.ui.theme.TextSecondary
+import kotlinx.coroutines.launch
 import java.io.File
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var engine: DiffusionEngine
     private lateinit var modelManager: ModelManager
+    private lateinit var updateManager: UpdateManager
     private var sharedImageUri: Uri? = null
 
     enum class NavTab(val title: String, val icon: ImageVector) {
@@ -49,12 +55,14 @@ class MainActivity : ComponentActivity() {
 
         engine = DiffusionEngine.getInstance(this)
         modelManager = ModelManager(this)
+        updateManager = UpdateManager(this)
 
         // Handle shared image from Samsung Gallery
         handleIncomingIntent(intent)
 
         setContent {
             AuraDiffusionTheme {
+                val scope = rememberCoroutineScope()
                 var currentTab by remember {
                     mutableStateOf(if (sharedImageUri != null) NavTab.IMG2IMG else NavTab.TXT2IMG)
                 }
@@ -63,6 +71,19 @@ class MainActivity : ComponentActivity() {
                 var selectedModel by remember {
                     mutableStateOf(localModels.firstOrNull())
                 }
+
+                val updateState by updateManager.updateState.collectAsState()
+
+                // Check for updates on startup (honors 24h snooze if previously dismissed)
+                LaunchedEffect(Unit) {
+                    updateManager.checkForUpdates(forceCheck = false)
+                }
+
+                // Render in-app Update Popup (Update Now / Update Later - 24h snooze)
+                UpdateDialog(
+                    updateState = updateState,
+                    updateManager = updateManager
+                )
 
                 Scaffold(
                     modifier = Modifier.fillMaxSize().background(DarkBackground),
@@ -120,7 +141,12 @@ class MainActivity : ComponentActivity() {
                             NavTab.MODELS -> ModelHubScreen(
                                 modelManager = modelManager,
                                 selectedModel = selectedModel,
-                                onSelectModel = { selectedModel = it }
+                                onSelectModel = { selectedModel = it },
+                                onCheckForUpdates = {
+                                    scope.launch {
+                                        updateManager.checkForUpdates(forceCheck = true)
+                                    }
+                                }
                             )
                             NavTab.GALLERY -> GalleryScreen()
                         }
@@ -137,7 +163,12 @@ class MainActivity : ComponentActivity() {
 
     private fun handleIncomingIntent(intent: Intent?) {
         if (intent?.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
-            val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
             if (uri != null) {
                 sharedImageUri = uri
             }

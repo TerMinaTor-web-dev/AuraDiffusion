@@ -34,7 +34,8 @@ import java.io.FileOutputStream
 fun ModelHubScreen(
     modelManager: ModelManager,
     selectedModel: File?,
-    onSelectModel: (File) -> Unit
+    onSelectModel: (File) -> Unit,
+    onCheckForUpdates: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -104,6 +105,26 @@ fun ModelHubScreen(
                         color = TextSecondary,
                         fontSize = 11.sp
                     )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            "App Version: v${com.auradiffusion.app.BuildConfig.VERSION_NAME}",
+                            color = TextSecondary,
+                            fontSize = 11.sp
+                        )
+                        TextButton(
+                            onClick = onCheckForUpdates,
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Refresh, contentDescription = null, tint = AccentCyan, modifier = Modifier.size(14.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Check for Updates", color = AccentCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
             }
         }
